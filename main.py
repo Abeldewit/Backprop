@@ -45,22 +45,27 @@ def sigmoid_derivative(output):
     return output * (1.0 - output)
 
 
+# Forward propagation input -> output
 def forward_propagation(network, row):
     inputs = row
-    for layer in network:
+    for layer in network:  # For each layer in the network
         new_inputs = None
-        for neuron in layer:
+        for neuron in layer: # For each separate 'neuron' in the network
             weights = neuron['weights'][0]
-            activation = activate(weights, inputs)
-            neuron['outputs'] = sigmoid(activation)
+            activation = activate(weights, inputs)  # multiply the corresponding weights with the input
+            neuron['outputs'] = sigmoid(activation) # sigmoid function to map it between 0 and 1
+
+            # The 'outputs' of the current layer are saved to the new_inputs
             if new_inputs is None:
                 new_inputs = neuron['outputs']
             else:
                 new_inputs = np.concatenate((new_inputs, neuron['outputs']), axis=1)
-        inputs = np.array(new_inputs)
+        inputs = new_inputs
+    # And we return the network output
     return inputs
 
 
+# Make the training vectors, the number will be the amount of examples used
 def make_training(number):
     train = np.zeros((number, 8))
     for i in range(number):
@@ -70,9 +75,13 @@ def make_training(number):
 
 
 def main():
+    # Make the network, 8 input, 3 hidden, 8 output
     network = make_network(8, 3, 8)
+
+    # Make the training examples
     train = make_training(6)
 
+    # The first output of the network with random weights
     output = forward_propagation(network, train)
 
 
