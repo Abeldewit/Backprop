@@ -1,6 +1,9 @@
 from math import exp
 from random import random
 import numpy as np
+import time
+
+from NNdraw import DrawNN
 
 
 # Make the appropriate layers with randomized weights
@@ -53,7 +56,7 @@ def forward_propagation(network, row):
         for neuron in layer: # For each separate 'neuron' in the network
             weights = neuron['weights'][0]
             activation = activate(weights, inputs)  # multiply the corresponding weights with the input
-            neuron['outputs'] = sigmoid(activation) # sigmoid function to map it between 0 and 1
+            neuron['outputs'] = sigmoid(activation)  # sigmoid function to map it between 0 and 1
 
             # The 'outputs' of the current layer are saved to the new_inputs
             if new_inputs is None:
@@ -65,12 +68,51 @@ def forward_propagation(network, row):
     return inputs
 
 
+# Backward propagation output -> weight update
+def backward_propagation(network, expected, output):
+    for i in reversed(range(len(network))):
+        layer = network[i]
+        errors = []
+        if i == len(network)-1:  # Calculate the error for the output layer (len -1) is the last layer
+            for j, neuron in enumerate(layer):
+                errors.append(expected[0][j] - neuron['outputs'])
+        else:  # Else we calculate the error for the hidden/interior nodes
+            for j in range(len(layer)):
+                error = 0.0
+                for neuron in network[i + 1]:
+                    error += (neuron['weights'][0][j] * neuron['delta'])
+                errors.append(error)
+        for j, neuron in enumerate(layer):
+            neuron['delta'] = errors[j] * sigmoid_derivative(neuron['outputs'])
+
+
+def update_weights(network, row, learning_rate):
+    for i in range(len(network)):
+        inputs = row[0]
+        if i != 0:
+            inputs = [neuron['outputs'][0] for neuron in network[i - 1]]
+        for neuron in network[i]:
+            for j in range(len(inputs)):
+                update = learning_rate * inputs[j] * neuron['delta'][0]
+                neuron['weights'][0][j] += update
+
+            bias_update = learning_rate * neuron['delta'][0]
+            neuron['weights'][0][-1] += bias_update
+
+
 # Make the training vectors, the number will be the amount of examples used
 def make_training(number):
-    train = np.zeros((number, 8))
+    train = np.zeros((8, number))
     for i in range(number):
         index = np.random.randint(0, 8)
-        train[i][index] = 1
+        train[index][i] = 1
+    return train
+
+
+def make_all():
+    train = np.zeros((8, 8))
+    for i in range(8):
+        train[i][i] = 1
     return train
 
 
@@ -79,10 +121,106 @@ def main():
     network = make_network(8, 3, 8)
 
     # Make the training examples
-    train = make_training(6)
+    training = make_all()
+    training = training.transpose()
 
-    # The first output of the network with random weights
-    output = forward_propagation(network, train)
+    GS = input('GridSearch (y/n): ')
+
+    if GS.lower() == 'n':
+        learn_rate = 0.5
+        n_epochs = 1000
+
+        for epoch in range(n_epochs):
+            sum_error = 0
+            for i in range(training.shape[0]):
+                train = [training[i]]
+                output = forward_propagation(network, train)
+
+                dif = train - output
+                sum_dif = np.sum(np.square(dif))
+                sum_error += sum_dif
+
+                backward_propagation(network, train, output)
+                update_weights(network, train, learn_rate)
+
+            print('>epoch {}\t lr = {}, error = {}'.format(epoch+1, learn_rate, round(sum_error, 3)))
+    elif GS.lower() == 'y':
+
+        rates = [0.1, 0.25, 0.5, 0.75, 0.9]
+        eps = [10, 100, 1000, 2000, 5000]
+
+        errors = []
+        for r in range(len(rates)):
+            for j in range(len(eps)):
+                learn_rate = rates[r]
+                n_epochs = eps[j]
+
+                start_time = time.time()
+                for epoch in range(n_epochs):
+                    sum_error = 0
+                    for i in range(training.shape[0]):
+                        train = [training[i]]
+                        output = forward_propagation(network, train)
+
+                        dif = train - output
+                        sum_dif = np.sum(np.square(dif))
+                        sum_error += sum_dif
+
+                        backward_propagation(network, train, output)
+                        update_weights(network, train, learn_rate)
+                elapsed = time.time() - start_time
+                print((learn_rate, n_epochs, sum_error, elapsed))
+                errors.append((learn_rate, n_epochs, sum_error, elapsed))
+            print('-'*20)
+
+        best_score = (0, 0, float('inf'), 0)
+
+        best_time = (0, 0, 0, float('inf'))
+        for er in errors:
+            if er[2] < best_score[2]:
+                best_score = er
+            if er[3] < best_time[3]:
+                best_time = er
+
+        print(best_score)
+        print(best_time)
+
+
+    print('\n')
+
+    while True:
+        test = input('test: ')
+
+        if test.lower() == 'vis':
+            drawer = DrawNN([8, 3, 8], network)
+            drawer.draw()
+            continue
+
+        if test.lower() == 'print':
+            for layer in network:
+                for neuron in layer:
+                    print('w:', neuron['weights'][0][:-1])
+                    print('b:', neuron['weights'][0][-1])
+            continue
+
+        if test.lower() == 'exit':
+            break
+
+        t = []
+        for c in test:
+            t.append(int(c))
+        if len(t) == 8:
+            output = np.round(forward_propagation(network, [t]))[0]
+            print(output, end='\t')
+
+            correct = True
+            for i, e in enumerate(t):
+                if e != output[i]:
+                    correct = False
+            if correct:
+                print('CORRECT!')
+            else:
+                print('wrong :(')
 
 
 if __name__ == '__main__':
