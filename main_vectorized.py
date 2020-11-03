@@ -30,22 +30,12 @@ def backward_propagation(NN, deltas, x, y):
     # compute the 'errors' of all nodes
     weights_without_bias_output = NN[-1]['weights'][:, 1:]
     errors = [0, activation_derivative(activations[-1]) * (activations[-1] - y)]
-
-    # print(activations[-2])
-    # exit()
-
     errors[0] = activation_derivative(activations[-2]) * (np.dot(weights_without_bias_output.T, errors[-1]))
 
     # update the deltas using partial derivatives of the weights/biases
     for j in range(len(NN)):
-        # print(errors[j])
-        # print(activations[j])
         partial_derivative = np.c_[errors[j], np.outer(errors[j], activations[j])]
-    #     print(partial_derivative)
-    #
         deltas[j] += partial_derivative
-    #
-    # exit()
 
     return np.sum(np.square(errors[-1]))
 
@@ -54,9 +44,6 @@ def backward_propagation(NN, deltas, x, y):
 def weight_update(NN, deltas, n_inputs, learning_rate, weight_decay):
     n_inputs = 1
     for i in range(len(NN)):
-        # NN[i]['weights'] -= learning_rate * (1/n_inputs * deltas[i])
-        # NN[i]['weights'][:, 1:] -= learning_rate * weight_decay * NN[i]['weights'][:, 1:]
-
         NN[i]['weights'][:, 1:] -= learning_rate * ((1 / n_inputs) * deltas[i][:, 1:] + weight_decay * NN[i][
             'weights'][:, 1:])
         NN[i]['weights'][:, 0] -= learning_rate * deltas[i][:, 0] / n_inputs
@@ -109,17 +96,19 @@ def main():
         errors = []
 
         rates = [0.1, 0.25, 0.5, 0.75, 0.9]
-        iterations = [10, 100, 1000, 2000, 5000]
-        decays = [0., 0.001, 0.01, 0.1]
+        iterations = [10, 100, 1000, 2000]
+        decays = [0., 0.1, 0.01, 0.001]
 
+        loss_graphs = []
         for i, rate in enumerate(rates):
             print('%d / %d rates' % (i+1, len(rates)))
             for j, decay in enumerate(decays):
                 for k, iter in enumerate(iterations):
                     NN = init_network(8, 3, 8)
                     start_time = time.time()
-                    sum_error = gradient_descent(NN, x, y, iter, rate, decay)[-1]
-
+                    learning_curve = gradient_descent(NN, x, y, iter, rate, decay)
+                    sum_error = learning_curve[-1]
+                    loss_graphs.append(learning_curve)
                     elapsed = time.time() - start_time
                     errors.append((rate, decay, iter, sum_error, elapsed))
                     print(errors[-1])
@@ -133,19 +122,85 @@ def main():
             if er[4] < best_time[4]:
                 best_time = er
 
-        print(best_score)
-        print(best_time)
+        print('lowest error:', best_score)
+        print('fastest time:', best_time)
+
+        # Plot all searches
+        for plot in loss_graphs:
+            plt.plot(np.arange(len(plot)), plot)
+        plt.show()
 
     else:  # do not perform grid search
         learning_curve = gradient_descent(NN, x, y, 2000, 0.5, 0.001)
         plt.plot(np.arange(len(learning_curve)), learning_curve)
         plt.show()
 
+        analysis(NN)
+
         print('score: %.5f' % learning_curve[-1])
 
 
+def analysis(NN):
+    X = []
+    Y = []
+
+    Y_SIZE = 40
+    X_SIZE = 2
+    # Input layer & hidden
+    for x in range(3):
+        if x != 2:
+            shap = NN[x]['weights'].shape
+            for y in range(shap[1]-1, -1, -1):
+                div = Y_SIZE/shap[1]
+                X.append(x*X_SIZE)
+                if y == 0:
+                    X[-1] += 0.1
+                Y.append(y*div + 0.5*div)
+        else:
+            shap = NN[x-1]['weights'].shape
+            for y in range(shap[0]-1, -1, -1):
+                div = Y_SIZE/(shap[0]+1)
+                X.append(x*X_SIZE)
+                Y.append(y*div + 1.5*div)
+
+    for i in range(9):
+        for j in range(3):
+            prev_x = X[i]
+            prev_y = Y[i]
+            next_x = X[j+9]
+            next_y = Y[j+9]
+            weights = NN[0]['weights']
+            n_weights = np.interp(weights, (weights.min(), weights.max()), (-1, +1))
+            weight = n_weights[2-j][8-i]
+            if weight < 0:
+                color = (0, 0, abs(weight))
+            else:
+                color = (weight, 0, 0)
+            plt.arrow(prev_x, prev_y, (next_x - prev_x), (next_y - prev_y), color=color)
+    for i in range(4):
+        for j in range(8):
+            prev_x = X[i + 9]
+            prev_y = Y[i + 9]
+            next_x = X[j + 13]
+            next_y = Y[j + 13]
+            weights = NN[1]['weights']
+            n_weights = np.interp(weights, (weights.min(), weights.max()), (-1, +1))
+            weight = n_weights[7-j][3-i]
+            if weight < 0:
+                color = (0, 0, abs(weight))
+            else:
+                color = (weight, 0, 0)
+            plt.arrow(prev_x, prev_y, (next_x - prev_x), (next_y - prev_y), color=color)
+
+    plt.scatter(X, Y)
+    global COUNTER
+    COUNTER += 1
+    plt.show()
+    # plt.savefig('images/{}'.format(COUNTER))
+    # plt.close()
 
 
+COUNTER = 0
 if __name__ == '__main__':
     # reproducible results
     np.random.seed(42)
