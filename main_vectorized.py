@@ -96,9 +96,11 @@ def main():
         errors = []
 
         rates = [0.1, 0.25, 0.5, 0.75, 0.9]
-        iterations = [10, 100, 1000, 2000]
-        decays = [0., 0.1, 0.01, 0.001]
+        iterations = [100, 1000, 2000, 5000]
+        decays = [0., 0.001, 0.01, 0.1, 0.5]
 
+        print('(rate, decay, iterations, error, time):')
+        print('-' * 20)
         loss_graphs = []
         for i, rate in enumerate(rates):
             print('%d / %d rates' % (i+1, len(rates)))
@@ -128,17 +130,32 @@ def main():
         # Plot all searches
         for plot in loss_graphs:
             plt.plot(np.arange(len(plot)), plot)
+        plt.xlabel('iterations')
+        plt.ylabel('error')
         plt.show()
 
     else:  # do not perform grid search
-        learning_curve = gradient_descent(NN, x, y, 2000, 0.5, 0.001)
+        learning_curve = gradient_descent(NN, x, y, 5000, 0.9, 0.0)
         plt.plot(np.arange(len(learning_curve)), learning_curve)
         plt.show()
 
         analysis(NN)
 
+        visualize_weights(NN[0]['weights'], 'hidden layer')
+        visualize_weights(NN[1]['weights'], 'output layer')
+
         print('score: %.5f' % learning_curve[-1])
 
+
+def visualize_weights(weights, layer_name):
+    fig, ax = plt.subplots()
+    im = ax.imshow(weights, cmap='YlOrRd', vmin=-1, vmax=1)
+
+    for i in range(len(weights)):
+        for j in range(len(weights[i])):
+            text = ax.text(j, i, '%.1f' % weights[i, j], ha='center', va='center', color='black')
+    plt.title(layer_name)
+    plt.show()
 
 def analysis(NN):
     X = []
@@ -203,6 +220,6 @@ def analysis(NN):
 COUNTER = 0
 if __name__ == '__main__':
     # reproducible results
-    np.random.seed(42)
+    np.random.seed(0)
 
     main()
