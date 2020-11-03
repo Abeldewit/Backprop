@@ -27,4 +27,4 @@ GridSearch, a single run is done with the optimal parameters that are (hard)code
 The program prints the final error rate of all parameters and produces a plot of the error rates throughout all
  iterations. 
 
-If a single run of the program was chosen by the user, the network and it's will be visualized.
+If a single run of the program was chosen by the user, the network and it's weights will be visualized.
